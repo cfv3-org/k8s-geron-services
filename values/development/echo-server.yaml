@@ -1,0 +1,18 @@
+ingress:
+  enabled: true
+  ingressClassName: cloudflare-tunnel
+  annotations:
+    kubernetes.io/ingress.class: "cloudflare-tunnel"
+    cert-manager.io/cluster-issuer: "letsencrypt-cloudflare"
+  tls:
+    - hosts:
+        - echo.cfv3.org
+      secretName: echo-server-ssl-secret
+  hosts:
+    - host: echo.cfv3.org
+      paths:
+        - /
+
+serviceAccount:
+  create: true
+  name: echo-server-sa

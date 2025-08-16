@@ -1,0 +1,12 @@
+nfs:
+  server: ""
+  path: ""
+
+storageClass:
+  name: safe
+  defaultClass: true
+
+mountOptions:
+  - vers=4
+  - rsize=8192
+  - wsize=8192

@@ -1,0 +1,6 @@
+controller:
+  replicaCount: 1
+  service:
+    type: LoadBalancer
+  ingressClassResource:
+    default: true

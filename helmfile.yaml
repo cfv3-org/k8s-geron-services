@@ -1,0 +1,124 @@
+environments:
+  development:
+    values:
+      - environments/development.yaml
+---
+repositories:
+  - name: ingress-nginx
+    url: https://kubernetes.github.io/ingress-nginx
+  - name: jetstack
+    url: https://charts.jetstack.io
+  - name: bitnami
+    url: https://charts.bitnami.com/bitnami
+  - name: metallb
+    url: https://metallb.github.io/metallb
+  - name: ealenn
+    url: https://ealenn.github.io/charts
+  - name: metrics-server
+    url: https://kubernetes-sigs.github.io/metrics-server
+  - name: nfs-subdir-external-provisioner
+    url: https://kubernetes-sigs.github.io/nfs-subdir-external-provisioner
+  - name: external-secrets
+    url: https://charts.external-secrets.io
+  - name: strrl.dev
+    url: https://helm.strrl.dev
+
+releases:
+  - name: nginx-ingress
+    namespace: ingress-nginx
+    createNamespace: true
+    chart: ingress-nginx/ingress-nginx
+    version: 4.10.1
+    values:
+      - values/{{ .Environment.Name | lower }}/ingress.yaml
+
+  - name: cloudflare-tunnel-ingress-controller
+    namespace: cloudflare-tunnel-ingress-controller
+    createNamespace: true
+    chart: strrl.dev/cloudflare-tunnel-ingress-controller
+    version: 0.0.18
+    values:
+      - values/{{ .Environment.Name | lower }}/cloudflare-tunnel-ingress-controller.yaml
+
+  - name: cert-manager
+    namespace: cert-manager
+    chart: jetstack/cert-manager
+    version: v1.18.0
+    values:
+      - values/{{ .Environment.Name | lower }}/cert-manager.yaml
+    hooks:
+      - events: [ "postsync" ]
+        command: kubectl
+        args: [ "apply", "-f", "./hooks/certmanager" ]
+    needs:
+      - ingress-nginx/nginx-ingress
+      - cloudflare-tunnel-ingress-controller/cloudflare-tunnel-ingress-controller
+
+  - name: external-dns
+    namespace: external-dns
+    createNamespace: true
+    chart: bitnami/external-dns
+    version: 8.8.4
+    values:
+      - values/{{ .Environment.Name | lower }}/external-dns.yaml
+    needs:
+      - ingress-nginx/nginx-ingress
+
+  - name: metallb
+    namespace: metallb-system
+    createNamespace: false
+    chart: metallb/metallb
+    version: 0.15.2
+    hooks:
+      - events: ["prepare"]
+        command: kubectl
+        args: ["apply", "-f", "./hooks/metallb/metallb-namespace.yaml"]
+
+  - name: metallb-config
+    namespace: metallb-system
+    chart: ./charts/metallb-config
+    needs:
+      - metallb-system/metallb
+
+  - name: metrics-server
+    namespace: kube-system
+    createNamespace: false
+    chart: metrics-server/metrics-server
+    version: 3.12.2
+    values:
+      - values/{{ .Environment.Name }}/metrics-server.yaml
+
+  - name: nfs-storage
+    namespace: nfs-provisioner
+    chart: nfs-subdir-external-provisioner/nfs-subdir-external-provisioner
+    version: 4.0.18
+    createNamespace: true
+    values:
+      - values/{{ .Environment.Name }}/nfs-safe.yaml
+
+  - name: external-secrets
+    namespace: external-secrets
+    chart: external-secrets/external-secrets
+    version: 0.17.0
+    createNamespace: true
+    values:
+      - values/{{ .Environment.Name }}/external-secrets.yaml
+
+  - name: endpoints-config
+    namespace: endpoints
+    chart: ./charts/endpoints-config
+
+ - name: http-echo
+   namespace: echo-server
+   createNamespace: true
+   chart: ealenn/echo-server
+   version: 0.5.0
+   values:
+     - values/{{ .Environment.Name }}/echo-server.yaml
+   needs:
+     - ingress-nginx/nginx-ingress
+     - cloudflare-tunnel-ingress-controller/cloudflare-tunnel-ingress-controller
+   hooks:
+     - events: [ "postsync" ]
+       command: kubectl
+       args: [ "apply", "-f", "./hooks/echo-server" ]

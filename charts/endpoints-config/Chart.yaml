@@ -1,0 +1,4 @@
+apiVersion: v2
+name: endpoints-config
+version: 0.1.0
+description: "External applications endpoints"
